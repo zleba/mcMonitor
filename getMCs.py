@@ -337,18 +337,20 @@ for item in dataSets:
                 for a in reqs:
                     print r['prepid']
                 assert(0)
-            gs = dr = mini = nano = None
+            gs = dr = reReco = mini = nano = None
             for r in reqs:
                 if 'GS-' in r['prepid']:
                     gs = r
                 if 'DR' in r['prepid']:
                     dr = r
+                if 'ReReco' in r['prepid']:
+                    reReco = r
                 if 'MiniAOD' in r['prepid']:
                     mini = r
                 if 'NanoAOD' in r['prepid']:
                     nano = r
-            #assert(((gs != None) + (dr!=None) + (mini!=None) + (nano!=None)) == len(reqs))
-            assert(gs != None)
+            assert(((gs != None) + (dr!=None) + (reReco!=None) + (mini!=None) + (nano!=None)) == len(reqs))
+            assert(gs != None) 
 
             print '<tr>'
             if dnId == 0 and chId == 0:
@@ -431,7 +433,7 @@ for item in dataSets:
                 print getStatusTab(dr,nDR)
                 drMult[dr['prepid']] = 0
 
-            #print getStatusTab(dr)
+            #print getStatusTab(reReco)
             print getStatusTab(mini)
             print getStatusTab(nano)
             print '</tr>'
