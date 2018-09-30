@@ -47,6 +47,10 @@ def getTag(r):
         iS = x.find("-")
         iE = x.rfind("-")
         tagMain += x[iS+1:iE]
+
+    if tagMain[:len(tagMain)/2] == tagMain[len(tagMain)/2:]:
+        tagMain = tagMain[:len(tagMain)/2]
+
     tagBr = ''
     if len(pileUpStr) > 2:
         tagBr += '&nbsp;('+pileUpStr[0:10]+')'
@@ -66,7 +70,7 @@ def getTag(r):
     elif 'realistic' in tagMain:
         tagCol = '#000000'
 
-    tag = '<span style="color:'+tagCol+'" title="'+pileUpFile+'">'+tag+'</span>'
+    tag = '<span style="color:'+tagCol+'" title="'+tagMain+'">'+tag+'</span>'
     return tag
 
 
