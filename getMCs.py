@@ -274,7 +274,14 @@ for item in dataSets:
                 print '<td><a href="https://cms-pdmv.cern.ch/mcm/requests?prepid=' + r['prepid']+'">', dn, '</a></td>'
                 print '<td></td>'
                 print '<td>',getEvnt(r),'</td>'
-                print '<td colspan=6>',r['status'],'</td>'
+
+                status = r['status']
+                if r['approval'] == "validation":
+                    if r['status'] == "new":
+                        status = "validation"
+                    elif r['status'] == "validation":
+                        status = "validated"
+                print '<td colspan=6>',status,'</td>'
             else:
                 print '<td>', dn, '</td>'
                 print '<td></td>'
