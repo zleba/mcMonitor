@@ -50,14 +50,23 @@ def getTag(r):
     tagBr = ''
     if len(pileUpStr) > 2:
         tagBr += '&nbsp;('+pileUpStr[0:10]+')'
-    tagMain = tagMain[0:30-len(tagBr)]
-    tag = (tagMain+tagBr).strip()
+    tagTrim = tagMain[0:30-len(tagBr)]
+    tag = (tagTrim+tagBr).strip()
     if len(tag) < 4:
         tag = r['prepid']
 
-    pileUpFile = pileUpFile.replace('-', '&#8209;')
-    if len(pileUpFile) > 2:
-        tag = '<span style="color:#ff9933" title="'+pileUpFile+'">'+tag+'</span>'
+    pileUpFile = pileUpFile.replace('-', '&#8209;') #there can be issues with -
+    #if len(pileUpFile) > 2:
+
+    tagCol = '#000000'
+    if 'FlatPU' in tagMain:
+        tagCol = '#ff9933'
+    elif 'NoPU' in tagMain:
+        tagCol = '#0000FF'
+    elif 'realistic' in tagMain:
+        tagCol = '#000000'
+
+    tag = '<span style="color:'+tagCol+'" title="'+pileUpFile+'">'+tag+'</span>'
     return tag
 
 
@@ -75,15 +84,15 @@ def getEvnt(r):
 def getStatus(r):
     if r == None:
         return 0
-    return round((r['completed_events']+0.)/r['total_events']*100.,1)
+    return round(abs((r['completed_events']+0.)/r['total_events']*100.),1)
 
 
 def getStatusTab(r, nMerge = 1):
     if r == None:
-        return "<td>NA</td>"
+        return "<td align=\"center\">-</td>"
     st = getStatus(r)
     if st == None:
-        return "<td>NA</td>"
+        return "<td align=\"center\">-</td>"
     s = str(st)
     #sRef = '<a href="https://cms-pdmv.cern.ch/mcm/requests?prepid=' + r['prepid']+'">' + s +'</a>'
     sRef = '<a style="text-decoration: none" href="https://cms-pdmv.cern.ch/pmp/historical?r='+ r['prepid']+'">' + s +'</a>'
@@ -198,19 +207,23 @@ print '<style> a { text-decoration: none; }</style>'
 print '<style> .withBG     { background-image: linear-gradient(#FB00FF, #FB00FF, #FB00FF); background-repeat: no-repeat;}</style>'
 print '<style> .withBGdone { background-image: linear-gradient(#87FF00, #87FF00, #87FF00); background-repeat: no-repeat;}</style>'
 
+menu = ''
+for m in ['Summer17','Fall17','Summer18','Fall18']:
+    menu += '<a href="'+m+'.html">'+m+'</a>, '
+
 if args.campaign == "Summer18":
     print '<h1>Summer18 Campaign (CMSSW_10_1)</h1>'
-    print '<p>Check also related googledoc <a href="https://docs.google.com/spreadsheets/d/1NIWgppaC4WdxES3LZLvl8KBG1candg3BcIsA_cXvICc/edit#gid=5413440">status</a>, '
+    print '<p>'+menu+'check also related googledoc <a href="https://docs.google.com/spreadsheets/d/1NIWgppaC4WdxES3LZLvl8KBG1candg3BcIsA_cXvICc/edit#gid=5413440">status</a>, '
 elif args.campaign == "Fall18":
     print '<h1>Fall18 Campaign (CMSSW_10_2)</h1>'
-    print '<p>Check also related googledoc <a href="https://docs.google.com/spreadsheets/d/1NIWgppaC4WdxES3LZLvl8KBG1candg3BcIsA_cXvICc/edit#gid=1551401330">status</a>, '
+    print '<p>'+menu+'check also related googledoc <a href="https://docs.google.com/spreadsheets/d/1NIWgppaC4WdxES3LZLvl8KBG1candg3BcIsA_cXvICc/edit#gid=1551401330">status</a>, '
     print '<a href="https://docs.google.com/spreadsheets/d/1NIWgppaC4WdxES3LZLvl8KBG1candg3BcIsA_cXvICc/edit#gid=1681929127">planning</a> '
 elif args.campaign == "Fall17":
     print '<h1>Fall17 Campaign (CMSSW_9_4)</h1>'
-    print '<p>'
+    print '<p>'+menu
 elif args.campaign == "Summer17":
     print '<h1>Summer17 Campaign (CMSSW_9_3)</h1>'
-    print '<p>'
+    print '<p>'+menu
 
 
 import datetime
@@ -255,11 +268,17 @@ for item in dataSets:
             chSort.append(ch)
 
         def sortFun(ch):
+            taskName = ''
+            tag      = ''
+            drPrepID = ''
             for r in allRequests:
-                if (ch in r['member_of_chain']) and ('GS' in r['prepid']):
-                    tag = getTagBare(r)
-                    taskName = r['reqmgr_name'][-1]['content']['pdmv_prep_id']
-                    return (taskName, tag)
+                if ch in r['member_of_chain']:
+                    if 'GS' in r['prepid']:
+                        taskName = r['reqmgr_name'][-1]['content']['pdmv_prep_id']
+                    if 'DR' in r['prepid']:
+                        tag = getTagBare(r)
+                        drPrepID = r['prepid']
+            return (taskName, tag, drPrepID)
         chSort = sorted(chSort, key=sortFun) 
 
         if len(chAll) == 0:
@@ -291,7 +310,15 @@ for item in dataSets:
 
             print '</tr>'
 
-        
+        #Evaluate drMult
+        drMult = {}
+        for chId, ch in enumerate(chSort):
+            for r in allRequests:
+                if (ch in r['member_of_chain']) and ('DR' in r['prepid']):
+                    if r['prepid'] not in drMult:
+                        drMult[r['prepid']] = 0
+                    drMult[r['prepid']] += 1
+
 
         for chId, ch in enumerate(chSort):
             #print 'RADEK', dn, ch
@@ -395,8 +422,12 @@ for item in dataSets:
                 print getStatusTab(gs, prLen)
 
 
+            if  drMult[dr['prepid']] >= 1:
+                nDR = drMult[dr['prepid']]
+                print getStatusTab(dr,nDR)
+                drMult[dr['prepid']] = 0
 
-            print getStatusTab(dr)
+            #print getStatusTab(dr)
             print getStatusTab(mini)
             print getStatusTab(nano)
             print '</tr>'
