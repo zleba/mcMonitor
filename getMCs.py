@@ -295,6 +295,7 @@ print '<td>GS</td>'
 print '<td>DR</td>'
 print '<td>mAOD</td>'
 print '<td>nAOD</td>'
+print '<td>reReco</td>'
 print '</tr>'
 
 import collections
@@ -513,6 +514,8 @@ for item in dataSets:
             #print getStatusTab(reReco)
             print getStatusTab(mini)
             print getStatusTab(nano)
+            if reReco != None:
+                print getStatusTab(reReco)
             print '</tr>'
             #print dn, getStatus(gs), getStatus(dr), getStatus(mini), getStatus(nano)
 
