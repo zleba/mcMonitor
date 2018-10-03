@@ -45,6 +45,6 @@ do
 
 
 
-    sleep 60
+    sleep 120
     ((++iIter))
 done

@@ -32,29 +32,34 @@ def getTagBare(r):
     return (tagMain+tagBr).strip()
 
 
-def getTag(r):
+def getTag(r,ch):
+    #pileUp str in sequences
     pileUpStr = ''
     for  x in r['sequences']:
         if 'pileup' in x:
             pileUpStr +=  x['pileup']
+    #pileUp file name
     pileUpFile =  r['pileup_dataset_name'][0:r['pileup_dataset_name'].rfind("/")]
 
-    tagMain = ''
+    #From output-file name
+    tagFile = ''
     for x in  r['output_dataset']:
         iS = x.find("/", 2)
         iE = x.rfind("/")
         x = x[iS+1:iE]
-        iS = x.find("-")
+        iS = x.find("DR")
         iE = x.rfind("-")
-        tagMain += x[iS+1:iE]
+        tagFile += x[iS+2:]
 
-    if tagMain[:len(tagMain)/2] == tagMain[len(tagMain)/2:]:
-        tagMain = tagMain[:len(tagMain)/2]
+    if tagFile[:len(tagFile)/2] == tagFile[len(tagFile)/2:]:
+        tagFile = tagFile[:len(tagFile)/2]
+    import re
+    tagFile = re.sub(r'^-', "", tagFile)
 
     tagBr = ''
     if len(pileUpStr) > 2:
         tagBr += '&nbsp;('+pileUpStr[0:10]+')'
-    tagTrim = tagMain[0:30-len(tagBr)]
+    tagTrim = tagFile[0:30-len(tagBr)]
     tag = (tagTrim+tagBr).strip()
     if len(tag) < 4:
         tag = r['prepid']
@@ -63,14 +68,49 @@ def getTag(r):
     #if len(pileUpFile) > 2:
 
     tagCol = '#000000'
-    if 'FlatPU' in tagMain:
+    if 'FlatPU' in tagFile:
         tagCol = '#ff9933'
-    elif 'NoPU' in tagMain:
+    elif 'NoPU' in tagFile:
         tagCol = '#0000FF'
-    elif 'realistic' in tagMain:
+    elif 'realistic' in tagFile:
         tagCol = '#000000'
 
-    tag = '<span style="color:'+tagCol+'" title="'+tagMain+'">'+tag+'</span>'
+    import re
+    #BTV-chain_RunIIFall18GS_flowRunIIFall18DRPremix_flowRunIIFall18MiniAOD_flowRunIIFall18NanoAOD-00013
+    #HIG-chain_RunIIFall18wmLHEGS_flowRunIIFall18DRFlatPU0to70_flowRunIIFall18HEMreReco-00001
+
+    chainTag = ''
+    if 'reReco' in ch[:-6]:
+        searchObj = re.search( r'_flowRunII[a-zA-Z]*1[5-9]DR.*reReco', ch[:-6], re.M)
+        if searchObj:
+            chainTag = searchObj.group(0)
+            searchObj = re.search( r'DR.*', chainTag, re.M)
+            if searchObj:
+                chainTag = searchObj.group(0)
+                chainTag = re.sub(r'_flowRunII[A-Z][a-z]*1[5-9]', "&rarr;", chainTag)
+                #print chainTag
+                #import sys
+                #sys.exit()
+    else:
+        searchObj = re.search( r'_flowRunII[a-zA-Z]*1[5-9]DR[^_]*', ch[:-6], re.M)
+        if searchObj:
+            chainTag = searchObj.group(0)
+            searchObj = re.search( r'DR[^_]*', chainTag, re.M)
+            if searchObj:
+                chainTag = searchObj.group(0)
+        #print searchObj.group(1)
+        #print searchObj.group(2)
+    chainTag = re.sub(r'^DR', "", chainTag)
+    chainTag = re.sub(r'reReco$', "", chainTag)
+    if chainTag == '':
+        chainTag = '-'
+    #print s
+    #import sys
+    #sys.exit()
+
+    if pileUpStr != '':
+        pileUpStr =' ('+pileUpStr+')'
+    tag = '<span style="color:'+tagCol+'" title="'+tagFile+pileUpStr+'">'+chainTag+'</span>'
     return tag
 
 
@@ -78,11 +118,13 @@ def getTag(r):
 
 def getEvnt(r):
     nEv = r['total_events']
-    if nEv < 0.95e6:
-        nEv = round(nEv/1e5)/10.
+    if nEv < 0.095e6:
+        return str(int(round(nEv/1e3)))+'t'
+    elif nEv < 0.95e6:
+        return str(round(nEv/1e5)/10.)+'M'
     else:
-        nEv = int(round(nEv/1e6))
-    return str(nEv)+'M'
+        return str(int(round(nEv/1e6)))+'M'
+    return ''
 
 
 def getStatus(r):
@@ -186,7 +228,9 @@ for a in allRequests:
     for b in allRequests:
         if a['prepid'] == b['prepid']:
             c += 1
-    assert(c == 1)
+    if c != 1:
+        print a['prepid'], a['dataset_name']
+        assert(0)
 
 
 allRequests = sorted(allRequests, key=stringSplitByNumbers) 
@@ -210,6 +254,7 @@ print '<style> table, th, td { border: 1px solid black; }</style>'
 print '<style> a { text-decoration: none; }</style>'
 print '<style> .withBG     { background-image: linear-gradient(#FB00FF, #FB00FF, #FB00FF); background-repeat: no-repeat;}</style>'
 print '<style> .withBGdone { background-image: linear-gradient(#87FF00, #87FF00, #87FF00); background-repeat: no-repeat;}</style>'
+print '<style> .withBGval { background-image: linear-gradient(#C18080, #C18080, #C18080); background-repeat: no-repeat;}</style>'
 
 menu = ''
 for m in ['Summer17','Fall17','Summer18','Fall18']:
@@ -240,10 +285,11 @@ print ' )</p>'
 print '<table>'
 print '<tr>'
 print '<td>type</td>'
-print '<td>dataset_name</td>'
-print '<td>tag</td>'
+print '<td>dataset name</td>'
+print '<td>chainTag</td>'
 print '<td>nEv</td>'
-print '<td>Priority</td>'
+print '<td>Prior.</td>'
+print '<td>S</td>'
 print '<td>Run/Idle</td>'
 print '<td>GS</td>'
 print '<td>DR</td>'
@@ -261,7 +307,8 @@ for item in dataSets:
             nChains += max(1,len(chains[dn]))
         else:
             nChains += 1
-
+    #if item[0] == 'TT':
+        #print nChains
 
     for dnId, dn in enumerate(item[1]):
         #print dn
@@ -292,7 +339,7 @@ for item in dataSets:
                     r= rN
             print '<tr>'
             if dnId == 0:
-                print '<td  rowspan="'+str(len(item[1]))+ ' width=\"100px\"  ">',item[0],'</td>'
+                print '<td  rowspan="'+str(nChains)+ ' width=\"100px\"  ">',item[0],'</td>'
             if r != None:
                 print '<td><a href="https://cms-pdmv.cern.ch/mcm/requests?prepid=' + r['prepid']+'">', dn, '</a></td>'
                 print '<td></td>'
@@ -304,12 +351,12 @@ for item in dataSets:
                         status = "validation"
                     elif r['status'] == "validation":
                         status = "validated"
-                print '<td colspan=6>',status,'</td>'
+                print '<td colspan=7>',status,'</td>'
             else:
                 print '<td>', dn, '</td>'
                 print '<td></td>'
                 print '<td></td>'
-                print '<td colspan=6 style="color:red">Not in system!</td>'
+                print '<td colspan=7 style="color:red">Not in system!</td>'
 
 
             print '</tr>'
@@ -355,6 +402,8 @@ for item in dataSets:
             print '<tr>'
             if dnId == 0 and chId == 0:
                 print '<td  rowspan="'+str(nChains)+ '" width=\"100px\" >',item[0],'</td>'
+                #import sys
+                #sys.exit()
             #print '<td>',item[0],'</td>'
             if chId == 0:
                 #print '<td rowspan="'+str(len(chAll))+'">', dn, '</td>'
@@ -362,7 +411,7 @@ for item in dataSets:
             #print '<td>',dn,'</td>'
 
             
-            tagStr='<a href="https://cms-pdmv.cern.ch/mcm/requests?member_of_chain='+ch+'">'+getTag(dr)+'</a>'
+            tagStr='<a href="https://cms-pdmv.cern.ch/mcm/requests?member_of_chain='+ch+'">'+getTag(dr,ch)+'</a>'
             print '<td>',tagStr,'</td>'
             print '<td>',getEvnt(r),'</td>'
 
@@ -385,17 +434,28 @@ for item in dataSets:
             prOld = gs['priority']
             #print 'RADEK', prCur, prOld
             priority=str(prOld/1000)+'K'
+            runStat = ''
             if checkExist(gs,-1)  and ('force-complete' in gs['reqmgr_name'][-1]['content']['pdmv_status_history_from_reqmngr']):
                 priority = 'FC'
             elif gs['status']=='done':
                 priority = "done"
             if  (len(gs['reqmgr_name'])>0) and ('GS' in gs['prepid']):
                 mytroId = gs['reqmgr_name'][-1]['content']['pdmv_prep_id']
-                priority='<a href="https://dmytro.web.cern.ch/dmytro/cmsprodmon/workflows.php?prep_id='+mytroId+'">'+priority+'</a>'
+                addr = 'https://dmytro.web.cern.ch/dmytro/cmsprodmon/workflows.php?prep_id='+mytroId
+                priority='<a href="'+addr+'">'+priority+'</a>'
+
+                import os, sys
+                myOut = os.popen("curl -s -L  "+addr).readlines()
+                if len(myOut) > 10:
+                    findStr = '<tr><td class=lpc>Production status</td><td class=lpc>'
+                    runStat =  [l for l in myOut if findStr in l]
+                    if len(runStat) > 0:
+                        runStat = runStat[0][len(findStr):-11]
+                    #print runStat
+                    #sys.exit()
+
             if prLen > 0:
-                Running = -1
-                Idle    = -1
-                runWath = ''
+                RunIdle = []
                 for i,kn in enumerate(gs['reqmgr_name']):
                     if checkExist(gs,i) and  ('completed' not in kn['content']['pdmv_status_history_from_reqmngr']):
                         #from subprocess import check_output
@@ -411,6 +471,7 @@ for item in dataSets:
                                 Running = myOut['Running']
                                 Idle    = myOut['Idle']
                                 runWath = 'https://cms-gwmsmon.cern.ch/prodview/'+kn['name']
+                                RunIdle.append((runWath, Running, Idle))
                             except Exception: 
                                 pass
                             #print 'HOLKA', myOut['Running'], myOut['Idle']
@@ -419,11 +480,27 @@ for item in dataSets:
                         #import sys
                         #sys.exit()
                 #n = '<a href="https://cms-gwmsmon.cern.ch/prodview/'+gs['reqmgr_name'][-1]['name']+'">i</a>'
-                print '<td rowspan="'+str(prLen)+'" >',priority,'</td>'
+
+
+
+                rs = runStat[0].upper() if len(runStat) > 0 else ''
+                rsSpan = '<span title="'+runStat+'">'+rs+'</span>'
+
+                print '<td rowspan="'+str(prLen)+'" >'+priority+'</td>'
+                if rs == 'D':
+                    print '<td rowspan="'+str(prLen)+'"  class="withBGdone" style="background-size:100%">'+rsSpan+'</td>'
+                elif rs == 'R' and runStat == 'running':
+                    print '<td rowspan="'+str(prLen)+'"  class="withBG" style="background-size:100%">'+rsSpan+'</td>'
+                elif rs == 'V':
+                    print '<td rowspan="'+str(prLen)+'"  class="withBGval" style="background-size:100%">'+rsSpan+'</td>'
+                else:
+                    print '<td rowspan="'+str(prLen)+'" >'+rsSpan+'</td>'
+
+                RunIdle = sorted(RunIdle, key=lambda it:-it[1])[:2]
                 content = ''
-                if Running != -1:
-                    content= '<a  href="'+runWath+'">'+ str(Running)+'/'+str(Idle) +'</a>'
-                print '<td rowspan="'+str(prLen)+'" >',content, '</td>'
+                for RI in RunIdle:
+                    content+= '<a  href="'+RI[0]+'">'+ str(RI[1])+'/'+str(RI[2]) +' </a>'
+                print '<td align=\"center\" rowspan="'+str(prLen)+'" >',content, '</td>'
 
                 print getStatusTab(gs, prLen)
 
