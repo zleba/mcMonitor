@@ -8,7 +8,18 @@ args = parser.parse_args()
 def checkExist(gs,i):
     return len(gs['reqmgr_name'])>0 and  ('content' in   gs['reqmgr_name'][i]) and ('pdmv_status_history_from_reqmngr' in gs['reqmgr_name'][i]['content'])
 
+def getChains(allRequests):
+    chains = {}
+    for r in allRequests:
+        dn = r['dataset_name']
+        if dn not in chains:
+            chains[dn] = set()
+        for ch in  r['member_of_chain']:
+            #print ch
 
+            if 'GS' not in r['prepid'] and (r['status'] == 'submitted' or r['status'] == 'done'):
+                chains[dn].add(ch)
+    return chains
 
 def getTagBare(r):
     pileUpStr = ''
@@ -41,13 +52,16 @@ def getTag(r,ch):
     #pileUp file name
     pileUpFile =  r['pileup_dataset_name'][0:r['pileup_dataset_name'].rfind("/")]
 
+    recTag='DR'
+    if 'FSPremix' in ch:
+        recTag = 'FS'
     #From output-file name
     tagFile = ''
     for x in  r['output_dataset']:
         iS = x.find("/", 2)
         iE = x.rfind("/")
         x = x[iS+1:iE]
-        iS = x.find("DR")
+        iS = x.find(recTag)
         iE = x.rfind("-")
         tagFile += x[iS+2:]
 
@@ -81,10 +95,10 @@ def getTag(r,ch):
 
     chainTag = ''
     if 'reReco' in ch[:-6]:
-        searchObj = re.search( r'_flowRunII[a-zA-Z]*1[5-9]DR.*reReco', ch[:-6], re.M)
+        searchObj = re.search( r'_flowRunII[a-zA-Z]*1[5-9]'+recTag+'.*reReco', ch[:-6], re.M)
         if searchObj:
             chainTag = searchObj.group(0)
-            searchObj = re.search( r'DR.*', chainTag, re.M)
+            searchObj = re.search( r''+recTag+'.*', chainTag, re.M)
             if searchObj:
                 chainTag = searchObj.group(0)
                 chainTag = re.sub(r'_flowRunII[A-Z][a-z]*1[5-9]', "&rarr;", chainTag)
@@ -92,15 +106,15 @@ def getTag(r,ch):
                 #import sys
                 #sys.exit()
     else:
-        searchObj = re.search( r'_flowRunII[a-zA-Z]*1[5-9]DR[^_]*', ch[:-6], re.M)
+        searchObj = re.search( r'_flowRunII[a-zA-Z]*1[5-9]'+recTag+'[^_]*', ch[:-6], re.M)
         if searchObj:
             chainTag = searchObj.group(0)
-            searchObj = re.search( r'DR[^_]*', chainTag, re.M)
+            searchObj = re.search( r''+recTag+'[^_]*', chainTag, re.M)
             if searchObj:
                 chainTag = searchObj.group(0)
         #print searchObj.group(1)
         #print searchObj.group(2)
-    chainTag = re.sub(r'^DR', "", chainTag)
+    chainTag = re.sub(r'^'+recTag, "", chainTag)
     chainTag = re.sub(r'reReco$', "", chainTag)
     if chainTag == '':
         chainTag = '-'
@@ -196,6 +210,35 @@ def getCampaign(name):
             if req != None:
                 allRequests += req
 
+    chains = getChains(allRequests)
+
+    for dn in chains:
+        chAll = chains[dn]
+        for ch in chAll:
+            req = mcm.get('requests',query='member_of_chain='+ch)
+            for r in req:
+                #print ch, r['prepid']
+                n = r['prepid']
+                if 'GS-' in n:
+                    pass
+                elif 'DR' in n:
+                    pass
+                elif 'ReReco' in n:
+                    pass
+                elif 'MiniAOD' in n:
+                    pass
+                elif 'NanoAOD' in n:
+                    pass
+                else:
+                    #print len(req), ch
+                    print n
+
+                if r not in allRequests:
+                    allRequests.append(r)
+                    #print 'Adding ',r['dataset_name'], r['prepid']
+                else:
+                    pass
+                    #print 'Existing ',r['dataset_name'], r['prepid']
 
     #test
 #    for r in allRequests:
@@ -234,16 +277,8 @@ for a in allRequests:
 
 
 allRequests = sorted(allRequests, key=stringSplitByNumbers) 
-chains = {}
-for r in allRequests:
-    dn = r['dataset_name']
-    if dn not in chains:
-        chains[dn] = set()
-    for ch in  r['member_of_chain']:
-        #print ch
+chains = getChains(allRequests)
 
-        if 'GS' not in r['prepid'] and (r['status'] == 'submitted' or r['status'] == 'done'):
-            chains[dn].add(ch)
 #print "RADEK"
 #print chains
 
@@ -380,24 +415,35 @@ for item in dataSets:
                     reqs.append(r)
 
 
-            if len(reqs) > 4:
+            if len(reqs) > 5:
                 print "Length is ", len(reqs)
                 for a in reqs:
                     print r['prepid']
                 assert(0)
-            gs = dr = reReco = mini = nano = None
+            fs = lhe = gs = dr = reReco = mini = nano = None
             for r in reqs:
-                if 'GS-' in r['prepid']:
+                if 'wmLHE-' in r['prepid']:
+                    lhe = r
+                elif 'GS-' in r['prepid']:
                     gs = r
-                if 'DR' in r['prepid']:
+                elif 'DR' in r['prepid']:
                     dr = r
-                if 'ReReco' in r['prepid']:
+                elif 'ReReco' in r['prepid']:
                     reReco = r
-                if 'MiniAOD' in r['prepid']:
+                elif 'MiniAOD' in r['prepid']:
                     mini = r
-                if 'NanoAOD' in r['prepid']:
+                elif 'NanoAOD' in r['prepid']:
                     nano = r
-            assert(((gs != None) + (dr!=None) + (reReco!=None) + (mini!=None) + (nano!=None)) == len(reqs))
+                elif 'FS' in r['prepid']:
+                    fs = r
+                    
+            assert(((fs!=None) +  (lhe!=None) + (gs != None) + (dr!=None) + (reReco!=None) + (mini!=None) + (nano!=None)) == len(reqs))
+            if fs != None:
+                dr = gs = fs
+
+            if gs == None:
+                print ch
+                assert(0)
             assert(gs != None) 
 
             print '<tr>'
