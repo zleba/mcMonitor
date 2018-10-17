@@ -8,6 +8,69 @@ args = parser.parse_args()
 def checkExist(gs,i):
     return len(gs['reqmgr_name'])>0 and  ('content' in   gs['reqmgr_name'][i]) and ('pdmv_status_history_from_reqmngr' in gs['reqmgr_name'][i]['content'])
 
+
+#Get all the steps from the chain name
+def getSteps(allRequests, ch):
+    reqs = []
+    for r in allRequests:
+        if ch in r['member_of_chain']:
+            reqs.append(r)
+
+    if len(reqs) > 5:
+        print "Length is ", len(reqs)
+        for a in reqs:
+            print r['prepid']
+        assert(0)
+    fs = lhe = gs = dr = reReco = mini = nano = None
+    for r in reqs:
+        if 'wmLHE-' in r['prepid']:
+            lhe = r
+        elif 'GS-' in r['prepid']:
+            gs = r
+        elif 'DR' in r['prepid']:
+            dr = r
+        elif 'ReReco' in r['prepid']:
+            reReco = r
+        elif 'MiniAOD' in r['prepid']:
+            mini = r
+        elif 'NanoAOD' in r['prepid']:
+            nano = r
+        elif 'FS' in r['prepid']:
+            fs = r
+            
+    assert(((fs!=None) +  (lhe!=None) + (gs != None) + (dr!=None) + (reReco!=None) + (mini!=None) + (nano!=None)) == len(reqs))
+
+    steps = []
+    if lhe != None:
+        steps.append((lhe, 'LHE'))
+    if gs != None:
+        steps.append((gs, 'GS'))
+    if dr != None:
+        steps.append((dr, 'DR'))
+    if fs != None:
+        steps.append((fs, 'FS'))
+    if reReco != None:
+        steps.append((reReco, 'ReReco'))
+    if mini != None:
+        steps.append((mini, 'MiniAOD'))
+    if nano != None:
+        steps.append((nano, 'NanoAOD'))
+
+    middle = None
+    if fs != None:
+        middle = fs
+    else:
+        middle = dr
+
+    assert(steps[0] != None)
+    assert(middle   != None)
+    assert(steps[-1]!= None)
+
+    return (steps[0][0], middle,  steps[-1][0])
+
+
+
+
 def getChains(allRequests):
     chains = {}
     for r in allRequests:
@@ -355,17 +418,33 @@ for item in dataSets:
             chSort.append(ch)
 
         def sortFun(ch):
+            steps = getSteps(allRequests, ch)
+            #gs =  steps[0]
+            #print gs
+
+            genName  = ''
             taskName = ''
             tag      = ''
             drPrepID = ''
-            for r in allRequests:
-                if ch in r['member_of_chain']:
-                    if 'GS' in r['prepid']:
-                        taskName = r['reqmgr_name'][-1]['content']['pdmv_prep_id']
-                    if 'DR' in r['prepid']:
-                        tag = getTagBare(r)
-                        drPrepID = r['prepid']
-            return (taskName, tag, drPrepID)
+            genName  = steps[0]['prepid']
+            try:
+                taskName = steps[-1]['reqmgr_name'][-1]['content']['pdmv_prep_id']
+            except:
+                pass
+            tag      =  getTagBare(steps[1])
+            drPrepID =  steps[1]['prepid']
+            return (genName, taskName, drPrepID, tag)
+            #taskName = ''
+            #tag      = ''
+            #drPrepID = ''
+            #for r in allRequests:
+            #    if ch in r['member_of_chain']:
+            #        if 'GS' in r['prepid']:
+            #            taskName = r['reqmgr_name'][-1]['content']['pdmv_prep_id']
+            #        if 'DR' in r['prepid']:
+            #            tag = getTagBare(r)
+            #            drPrepID = r['prepid']
+            #return (taskName, tag, drPrepID)
         chSort = sorted(chSort, key=sortFun) 
 
         if len(chAll) == 0:
@@ -398,13 +477,30 @@ for item in dataSets:
             print '</tr>'
 
         #Evaluate drMult
-        drMult = {}
+        drMult = ['']*len(chSort)
         for chId, ch in enumerate(chSort):
             for r in allRequests:
                 if (ch in r['member_of_chain']) and ('DR' in r['prepid']):
-                    if r['prepid'] not in drMult:
-                        drMult[r['prepid']] = 0
-                    drMult[r['prepid']] += 1
+                    drMult[chId] = r['prepid']
+        assert(len(drMult) == len(chSort))
+        for i in range(len(drMult)):
+            val = drMult[i]
+            if val == 0: continue
+            c = 0
+            while  i+c < len(drMult)  and  drMult[i+c] == val:
+                drMult[i+c] = 0
+                c+=1
+            drMult[i] = c
+
+
+        #Evaluate gsMult
+        gsMult = {}
+        for chId, ch in enumerate(chSort):
+            for r in allRequests:
+                if (ch in r['member_of_chain']) and ('GS' in r['prepid']):
+                    if r['prepid'] not in gsMult:
+                        gsMult[r['prepid']] = 0
+                    gsMult[r['prepid']] += 1
 
 
         for chId, ch in enumerate(chSort):
@@ -440,6 +536,7 @@ for item in dataSets:
             assert(((fs!=None) +  (lhe!=None) + (gs != None) + (dr!=None) + (reReco!=None) + (mini!=None) + (nano!=None)) == len(reqs))
             if fs != None:
                 dr = gs = fs
+            ref = dr if reReco == None else reReco
 
             if gs == None:
                 print ch
@@ -466,9 +563,15 @@ for item in dataSets:
             mytroArr = []
             for tmpId, tmp in enumerate(chSort):
                 reqsTmp = []
-                for r in allRequests:
-                    if (tmp in r['member_of_chain']) and ('GS' in r['prepid']):
-                        mytroArr.append(r['reqmgr_name'][-1]['content']['pdmv_prep_id'])
+
+                steps = getSteps(allRequests, tmp)
+                try:
+                    mytroArr.append(steps[-1]['reqmgr_name'][-1]['content']['pdmv_prep_id'])
+                except:
+                    mytroArr.append('notAvail'+str(tmpId))
+                #for r in allRequests:
+                #    if (tmp in r['member_of_chain']) and ('GS' in r['prepid']):
+                #        mytroArr.append(r['reqmgr_name'][-1]['content']['pdmv_prep_id'])
             assert(len(chSort) == len(mytroArr))
             #print 'RADEK', mytroArr 
             prLen = -1
@@ -477,19 +580,24 @@ for item in dataSets:
 
 
 
-            #prCur = gs['reqmgr_name'][-1]['content']['pdmv_present_priority']
-            prOld = gs['priority']
+            #prCur = ref['reqmgr_name'][-1]['content']['pdmv_present_priority']
+            prOld = ref['priority']
             #print 'RADEK', prCur, prOld
             priority=str(prOld/1000)+'K'
             runStat = ''
-            if checkExist(gs,-1)  and ('force-complete' in gs['reqmgr_name'][-1]['content']['pdmv_status_history_from_reqmngr']):
+            if checkExist(ref,-1)  and ('force-complete' in ref['reqmgr_name'][-1]['content']['pdmv_status_history_from_reqmngr']):
                 priority = 'FC'
-            elif gs['status']=='done':
+            elif ref['status']=='done':
                 priority = "done"
             if  (len(gs['reqmgr_name'])>0) and ('GS' in gs['prepid']):
                 mytroId = gs['reqmgr_name'][-1]['content']['pdmv_prep_id']
-                addr = 'https://dmytro.web.cern.ch/dmytro/cmsprodmon/workflows.php?prep_id='+mytroId
-                priority='<a href="'+addr+'">'+priority+'</a>'
+                addr = 'https://dmytro.web.cern.ch/dmytro/cmsprodmon/workflows.php?prep_id='+mytroArr[chId]
+                if priority == 'FC':
+                    priority='<a href="'+addr+'" title="Force completition" style="color:red">'+priority+'</a>'
+                else:
+                    priority='<a href="'+addr+'">'+priority+'</a>'
+                if 'notAvail' in mytroArr[chId]:
+                    priority = '-'
 
                 import os, sys
                 myOut = os.popen("curl -s -L  "+addr).readlines()
@@ -503,8 +611,8 @@ for item in dataSets:
 
             if prLen > 0:
                 RunIdle = []
-                for i,kn in enumerate(gs['reqmgr_name']):
-                    if checkExist(gs,i) and  ('completed' not in kn['content']['pdmv_status_history_from_reqmngr']):
+                for i,kn in enumerate(ref['reqmgr_name']):
+                    if checkExist(ref,i) and  ('completed' not in kn['content']['pdmv_status_history_from_reqmngr']):
                         #from subprocess import check_output
                         #myOut  = check_output(["curl", "-L", "--cookie", "cookie.txt", "--cookie-jar",  "cookie.txt", "https://cms-gwmsmon.cern.ch/prodview/json/pdmvserv_task_MUO-RunIIFall18wmLHEGS-00001__v1_T_180914_194042_3213"]).rstrip()#
 
@@ -528,12 +636,15 @@ for item in dataSets:
                         #sys.exit()
                 #n = '<a href="https://cms-gwmsmon.cern.ch/prodview/'+gs['reqmgr_name'][-1]['name']+'">i</a>'
 
+                
 
-
+                if runStat == []:
+                    runStat = '-'
                 rs = runStat[0].upper() if len(runStat) > 0 else ''
                 rsSpan = '<span title="'+runStat+'">'+rs+'</span>'
 
                 print '<td rowspan="'+str(prLen)+'" >'+priority+'</td>'
+
                 if rs == 'D':
                     print '<td rowspan="'+str(prLen)+'"  class="withBGdone" style="background-size:100%">'+rsSpan+'</td>'
                 elif rs == 'R' and runStat == 'running':
@@ -549,13 +660,17 @@ for item in dataSets:
                     content+= '<a  href="'+RI[0]+'">'+ str(RI[1])+'/'+str(RI[2]) +' </a>'
                 print '<td align=\"center\" rowspan="'+str(prLen)+'" >',content, '</td>'
 
-                print getStatusTab(gs, prLen)
+                #print getStatusTab(gs, prLen)
 
+            if  gsMult[gs['prepid']] >= 1:
+                nGS = gsMult[gs['prepid']]
+                print getStatusTab(gs,nGS)
+                gsMult[gs['prepid']] = 0
 
-            if  drMult[dr['prepid']] >= 1:
-                nDR = drMult[dr['prepid']]
+            if  drMult[chId] >= 1:
+                nDR = drMult[chId]
                 print getStatusTab(dr,nDR)
-                drMult[dr['prepid']] = 0
+                #drMult[dr['prepid']] = 0
 
             #print getStatusTab(reReco)
             print getStatusTab(mini)

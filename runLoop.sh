@@ -16,7 +16,8 @@ do
     hostname
 
 
-    campaign=Fall18
+    for campaign in Fall17 Fall18
+    do
     echo samples/${campaign}Temp.html
     ./getMCs.py $campaign | sed 's/Using sso-cookie file cookies\/cookie.txt//'  | tail -n +2 > samples/${campaign}Temp.html
     wc -l samples/${campaign}Temp.html
@@ -42,6 +43,7 @@ do
         echo "problem"
     fi
     wc -l samples/${campaign}.html
+    done
 
 
 
