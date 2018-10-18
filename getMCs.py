@@ -355,15 +355,18 @@ print '<style> .withBGdone { background-image: linear-gradient(#87FF00, #87FF00,
 print '<style> .withBGval { background-image: linear-gradient(#C18080, #C18080, #C18080); background-repeat: no-repeat;}</style>'
 
 menu = ''
-for m in ['Summer17','Fall17','Summer18','Fall18']:
+for m in ['Summer17','Fall17','Summer18','Fall18', 'Autumn18']:
     menu += '<a href="'+m+'.html">'+m+'</a>, '
 
-if args.campaign == "Summer18":
-    print '<h1>Summer18 Campaign (CMSSW_10_1)</h1>'
-    print '<p>'+menu+'check also related googledoc <a href="https://docs.google.com/spreadsheets/d/1NIWgppaC4WdxES3LZLvl8KBG1candg3BcIsA_cXvICc/edit#gid=5413440">status</a>, '
+if args.campaign == "Autumn18":
+    print '<h1>Autumn18 Campaign (CMSSW_10_2_5)</h1>'
+    print '<p>'+menu+'check also related googledoc <a href="https://docs.google.com/spreadsheets/d/1NIWgppaC4WdxES3LZLvl8KBG1candg3BcIsA_cXvICc/edit#gid=1551401330">status</a>, '
 elif args.campaign == "Fall18":
     print '<h1>Fall18 Campaign (CMSSW_10_2)</h1>'
     print '<p>'+menu+'check also related googledoc <a href="https://docs.google.com/spreadsheets/d/1NIWgppaC4WdxES3LZLvl8KBG1candg3BcIsA_cXvICc/edit#gid=1551401330">status</a>, '
+elif args.campaign == "Summer18":
+    print '<h1>Summer18 Campaign (CMSSW_10_1)</h1>'
+    print '<p>'+menu+'check also related googledoc <a href="https://docs.google.com/spreadsheets/d/1NIWgppaC4WdxES3LZLvl8KBG1candg3BcIsA_cXvICc/edit#gid=5413440">status</a>, '
     print '<a href="https://docs.google.com/spreadsheets/d/1NIWgppaC4WdxES3LZLvl8KBG1candg3BcIsA_cXvICc/edit#gid=1681929127">planning</a> '
 elif args.campaign == "Fall17":
     print '<h1>Fall17 Campaign (CMSSW_9_4)</h1>'
@@ -551,11 +554,12 @@ for item in dataSets:
             #print '<td>',item[0],'</td>'
             if chId == 0:
                 #print '<td rowspan="'+str(len(chAll))+'">', dn, '</td>'
-                print '<td rowspan="'+str(len(chAll))+'"><a href="https://cms-pdmv.cern.ch/mcm/requests?dataset_name=' + gs['dataset_name']+'&prepid=*'+ args.campaign +'*GS*">', dn, '</a></td>'
+                #https://cms-pdmv.cern.ch/mcm/requests?dataset_name=QCD_Pt-15to7000_TuneCP5_Flat2018_13TeV_pythia8&member_of_chain=*Autumn18*&prepid=*GS*&page=0&shown=127
+                print '<td rowspan="'+str(len(chAll))+'"><a href="https://cms-pdmv.cern.ch/mcm/requests?dataset_name=' + gs['dataset_name']+'&member_of_chain=*'+args.campaign+'*&prepid=*GS*&page=0&shown=4398046511103">', dn, '</a></td>'
             #print '<td>',dn,'</td>'
 
             
-            tagStr='<a href="https://cms-pdmv.cern.ch/mcm/requests?member_of_chain='+ch+'">'+getTag(dr,ch)+'</a>'
+            tagStr='<a href="https://cms-pdmv.cern.ch/mcm/requests?member_of_chain='+ch+'&page=0&shown=4398046511103">'+getTag(dr,ch)+'</a>'
             print '<td>',tagStr,'</td>'
             print '<td>',getEvnt(r),'</td>'
 
